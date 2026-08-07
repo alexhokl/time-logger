@@ -73,7 +73,7 @@ func init() {
 }
 
 func initConfig() {
-	cli.ConfigureViper(rootOpts.cfgFile, AppName, false, envPrefix)
+	cli.ConfigureViper(rootOpts.cfgFile, AppName, false, "")
 }
 
 // bindEnvironmentVariablesToRootOptions falls back to Viper for any flag the
