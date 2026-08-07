@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package timelogger.v1;
+
+// Period identifies a repeating time window used by goals and reports.
+enum Period {
+  PERIOD_UNSPECIFIED = 0;
+  PERIOD_DAILY = 1;
+  PERIOD_WEEKLY = 2;
+  PERIOD_MONTHLY = 3;
+}
+
+// Date is a timezone-independent calendar date. It is used wherever a plain
+// day is meant (goal windows, report boundaries) rather than an instant.
+message Date {
+  int32 year = 1;
+  int32 month = 2;
+  int32 day = 3;
+}
+
+// PageRequest carries standard pagination parameters for List RPCs.
+message PageRequest {
+  // Maximum number of records to return. Zero means the server default (100),
+  // and values above 1000 are clamped to 1000.
+  int32 page_size = 1;
+  // Number of records to skip.
+  int32 offset = 2;
+}
+
+// PageResponse reports how many records exist in total for a List RPC so that
+// clients can render pagination controls.
+message PageResponse {
+  int64 total_count = 1;
+  bool has_more = 2;
+}
+
+// SortOrder controls the direction of the primary sort key of a List RPC.
+enum SortOrder {
+  SORT_ORDER_UNSPECIFIED = 0;
+  SORT_ORDER_ASC = 1;
+  SORT_ORDER_DESC = 2;
+}

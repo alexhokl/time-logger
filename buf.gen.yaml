@@ -1,0 +1,28 @@
+version: v2
+
+# Managed mode sets the go_package option on every file automatically, so the
+# .proto files stay free of Go-specific boilerplate.
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/alexhokl/time-logger/proto
+
+plugins:
+  # protoc-gen-go and protoc-gen-go-grpc are declared as Go tool dependencies in
+  # go.mod, so no separate installation step is required.
+  - local: ["go", "tool", "protoc-gen-go"]
+    out: proto
+    opt: paths=source_relative
+
+  - local: ["go", "tool", "protoc-gen-go-grpc"]
+    out: proto
+    opt: paths=source_relative
+
+  # protoc-gen-dart comes from the Dart `protoc_plugin` package
+  # (dart pub global activate protoc_plugin) and must be on PATH.
+  # It does not support paths=source_relative, so output is nested under
+  # mobile/lib/timelogger/v1/.
+  - local: protoc-gen-dart
+    out: mobile/lib/proto
+    opt: grpc

@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package timelogger.v1;
+
+import "timelogger/v1/common.proto";
+
+// ProjectService manages the top-level grouping of tracked work.
+service ProjectService {
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse);
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+  rpc GetProject(GetProjectRequest) returns (GetProjectResponse);
+  rpc UpdateProject(UpdateProjectRequest) returns (UpdateProjectResponse);
+  rpc DeleteProject(DeleteProjectRequest) returns (DeleteProjectResponse);
+  // SetProjectArchived hides a project from pickers without deleting its
+  // history. Archiving is the recommended alternative to DeleteProject for a
+  // project that already has time entries.
+  rpc SetProjectArchived(SetProjectArchivedRequest) returns (SetProjectArchivedResponse);
+}
+
+message Project {
+  uint64 id = 1;
+  string name = 2;
+  // Hex colour used by the Flutter client, e.g. "#4285F4". Optional.
+  string color = 3;
+  bool archived = 4;
+  // Number of time entries referencing this project. Only populated by
+  // ListProjects and GetProject when include_stats is set.
+  int64 entry_count = 5;
+  // Total tracked seconds against this project. Only populated when
+  // include_stats is set.
+  int64 total_seconds = 6;
+}
+
+message CreateProjectRequest {
+  string name = 1;
+  string color = 2;
+}
+
+message CreateProjectResponse {
+  Project project = 1;
+}
+
+message ListProjectsRequest {
+  // When false (default) archived projects are omitted.
+  bool include_archived = 1;
+  // When true the entry_count and total_seconds fields are populated. This
+  // costs an extra aggregate query, so it is opt-in.
+  bool include_stats = 2;
+  PageRequest page = 3;
+}
+
+message ListProjectsResponse {
+  repeated Project projects = 1;
+  PageResponse page = 2;
+}
+
+message GetProjectRequest {
+  uint64 id = 1;
+  bool include_stats = 2;
+}
+
+message GetProjectResponse {
+  Project project = 1;
+}
+
+message UpdateProjectRequest {
+  uint64 id = 1;
+  // Only the fields listed in update_mask are applied. Valid values are
+  // "name" and "color". An empty mask updates every provided field.
+  repeated string update_mask = 2;
+  string name = 3;
+  string color = 4;
+}
+
+message UpdateProjectResponse {
+  Project project = 1;
+}
+
+message DeleteProjectRequest {
+  uint64 id = 1;
+}
+
+message SetProjectArchivedRequest {
+  uint64 id = 1;
+  bool archived = 2;
+}
+
+message SetProjectArchivedResponse {
+  Project project = 1;
+}
+
+// DeleteProjectResponse is intentionally empty; it exists so the RPC can gain
+// response fields later without a breaking change.
+message DeleteProjectResponse {}

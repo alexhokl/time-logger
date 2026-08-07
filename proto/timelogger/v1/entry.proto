@@ -1,0 +1,174 @@
+syntax = "proto3";
+
+package timelogger.v1;
+
+import "google/protobuf/timestamp.proto";
+import "timelogger/v1/common.proto";
+
+// TimeEntryService manages completed (and in-progress) units of tracked work.
+//
+// Time specification rules
+// ------------------------
+// A time entry is defined by any two of start_time, end_time and
+// duration_seconds; the server derives the third. The accepted combinations
+// are:
+//
+//   start + end       -> duration is computed as end - start
+//   start + duration  -> end is computed as start + duration
+//   end + duration    -> start is computed as end - duration
+//   date + duration   -> start is midnight on that date in the user's
+//                        timezone, end is start + duration
+//   start only        -> the entry is left running (see TimerService)
+//
+// Supplying all three is accepted only when they are mutually consistent;
+// otherwise the request is rejected with INVALID_ARGUMENT.
+service TimeEntryService {
+  rpc CreateEntry(CreateEntryRequest) returns (CreateEntryResponse);
+  // CreateEntries inserts many entries in a single transaction. Either all
+  // entries are stored or none are.
+  rpc CreateEntries(CreateEntriesRequest) returns (CreateEntriesResponse);
+  rpc ListEntries(ListEntriesRequest) returns (ListEntriesResponse);
+  rpc GetEntry(GetEntryRequest) returns (GetEntryResponse);
+  rpc UpdateEntry(UpdateEntryRequest) returns (UpdateEntryResponse);
+  rpc DeleteEntry(DeleteEntryRequest) returns (DeleteEntryResponse);
+  // CopyEntries duplicates existing entries onto another date, preserving
+  // their time of day, duration, project, task and tags.
+  rpc CopyEntries(CopyEntriesRequest) returns (CopyEntriesResponse);
+}
+
+message TimeEntry {
+  uint64 id = 1;
+  string description = 2;
+
+  // Zero when the entry is not associated with a project.
+  uint64 project_id = 3;
+  string project_name = 4;
+
+  // Zero when the entry is not associated with a task.
+  uint64 task_id = 5;
+  string task_name = 6;
+
+  repeated string tags = 7;
+
+  google.protobuf.Timestamp start_time = 8;
+  // Absent while the entry is still running.
+  optional google.protobuf.Timestamp end_time = 9;
+  // Elapsed seconds. For a running entry this is the elapsed time as of the
+  // moment the server built the response.
+  int64 duration_seconds = 10;
+  // True when end_time is absent, i.e. the entry is the user's running timer.
+  bool running = 11;
+
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+}
+
+// TimeSpec carries the caller's chosen combination of start, end, duration and
+// date. It is shared by CreateEntry and the bulk create RPC.
+message TimeSpec {
+  optional google.protobuf.Timestamp start_time = 1;
+  optional google.protobuf.Timestamp end_time = 2;
+  optional int64 duration_seconds = 3;
+  // Calendar date interpreted in the user's configured timezone. Only
+  // meaningful together with duration_seconds.
+  optional Date date = 4;
+}
+
+message CreateEntryRequest {
+  string description = 1;
+  // Zero leaves the entry unassigned to a project.
+  uint64 project_id = 2;
+  // Zero leaves the entry unassigned to a task. When set, the task must
+  // belong to project_id if that is also set.
+  uint64 task_id = 3;
+  // Tags are matched by name and created on demand.
+  repeated string tags = 4;
+  TimeSpec time = 5;
+}
+
+message CreateEntryResponse {
+  TimeEntry entry = 1;
+}
+
+message CreateEntriesRequest {
+  repeated CreateEntryRequest entries = 1;
+}
+
+message CreateEntriesResponse {
+  repeated TimeEntry entries = 1;
+}
+
+message EntryFilter {
+  // Inclusive lower bound on start_time.
+  optional google.protobuf.Timestamp from = 1;
+  // Exclusive upper bound on start_time.
+  optional google.protobuf.Timestamp to = 2;
+  repeated uint64 project_ids = 3;
+  repeated uint64 task_ids = 4;
+  // Entries must carry every tag listed here.
+  repeated string tags = 5;
+  // Case-insensitive substring match against the description.
+  string search = 6;
+  // When true only the running entry is returned; when false running entries
+  // are excluded. Unset returns both.
+  optional bool running = 7;
+}
+
+message ListEntriesRequest {
+  EntryFilter filter = 1;
+  PageRequest page = 2;
+  // Sort direction on start_time. Defaults to descending (newest first).
+  SortOrder order = 3;
+}
+
+message ListEntriesResponse {
+  repeated TimeEntry entries = 1;
+  PageResponse page = 2;
+  // Sum of duration_seconds across every entry matching the filter, not just
+  // the returned page.
+  int64 total_seconds = 3;
+}
+
+message GetEntryRequest {
+  uint64 id = 1;
+}
+
+message GetEntryResponse {
+  TimeEntry entry = 1;
+}
+
+message UpdateEntryRequest {
+  uint64 id = 1;
+  // Valid mask values: "description", "project_id", "task_id", "tags",
+  // "start_time", "end_time", "duration_seconds". An empty mask updates every
+  // field present in the request.
+  repeated string update_mask = 2;
+  string description = 3;
+  uint64 project_id = 4;
+  uint64 task_id = 5;
+  repeated string tags = 6;
+  TimeSpec time = 7;
+}
+
+message UpdateEntryResponse {
+  TimeEntry entry = 1;
+}
+
+message DeleteEntryRequest {
+  uint64 id = 1;
+}
+
+message CopyEntriesRequest {
+  repeated uint64 entry_ids = 1;
+  // Date the copies should land on, interpreted in the user's timezone. The
+  // time of day of each source entry is preserved.
+  Date target_date = 2;
+}
+
+message CopyEntriesResponse {
+  repeated TimeEntry entries = 1;
+}
+
+// DeleteEntryResponse is intentionally empty; it exists so the RPC can gain
+// response fields later without a breaking change.
+message DeleteEntryResponse {}

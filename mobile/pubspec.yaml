@@ -1,0 +1,50 @@
+name: time_logger
+description: "Track where your time goes."
+publish_to: "none"
+
+version: 0.1.0
+
+environment:
+  sdk: ^3.9.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # gRPC transport and the runtime for the generated protobuf messages.
+  grpc: ^5.1.0
+  protobuf: ^6.0.0
+  fixnum: ^1.1.1
+
+  # State management. Riverpod is used rather than plain setState because the
+  # running timer must stay consistent across several screens at once: the home
+  # page, the entry list and the app bar all read the same ticking value, and
+  # threading that through constructors would be considerably more error-prone.
+  #
+  # Providers are declared by hand rather than generated. The generator saves
+  # little for a provider set this size and would add a build_runner step and a
+  # tree of .g.dart files to every change.
+  flutter_riverpod: ^3.0.0
+
+  # Offline storage: the reference-data cache and the queue of entries created
+  # while disconnected.
+  sqflite: ^2.4.1
+  path: ^1.9.0
+
+  shared_preferences: ^2.3.4
+  intl: ^0.20.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+  # sqflite has no implementation on desktop test runners, so the FFI variant
+  # backs the repository tests.
+  sqflite_common_ffi: ^2.3.4
+
+  build_runner: ^2.4.13
+  mockito: ^5.5.1
+
+flutter:
+  uses-material-design: true

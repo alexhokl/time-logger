@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package timelogger.v1;
+
+import "timelogger/v1/common.proto";
+
+// TaskService manages the optional second level of grouping below a project.
+service TaskService {
+  rpc CreateTask(CreateTaskRequest) returns (CreateTaskResponse);
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc GetTask(GetTaskRequest) returns (GetTaskResponse);
+  rpc UpdateTask(UpdateTaskRequest) returns (UpdateTaskResponse);
+  // DeleteTask detaches the task from any time entry referencing it (setting
+  // their task to none) before removing it.
+  rpc DeleteTask(DeleteTaskRequest) returns (DeleteTaskResponse);
+  rpc SetTaskArchived(SetTaskArchivedRequest) returns (SetTaskArchivedResponse);
+}
+
+message Task {
+  uint64 id = 1;
+  string name = 2;
+  uint64 project_id = 3;
+  string project_name = 4;
+  bool archived = 5;
+  int64 entry_count = 6;
+  int64 total_seconds = 7;
+}
+
+message CreateTaskRequest {
+  string name = 1;
+  uint64 project_id = 2;
+}
+
+message CreateTaskResponse {
+  Task task = 1;
+}
+
+message ListTasksRequest {
+  // Restrict results to a single project. Zero means all projects.
+  uint64 project_id = 1;
+  bool include_archived = 2;
+  bool include_stats = 3;
+  PageRequest page = 4;
+}
+
+message ListTasksResponse {
+  repeated Task tasks = 1;
+  PageResponse page = 2;
+}
+
+message GetTaskRequest {
+  uint64 id = 1;
+  bool include_stats = 2;
+}
+
+message GetTaskResponse {
+  Task task = 1;
+}
+
+message UpdateTaskRequest {
+  uint64 id = 1;
+  // Valid mask values are "name" and "project_id".
+  repeated string update_mask = 2;
+  string name = 3;
+  uint64 project_id = 4;
+}
+
+message UpdateTaskResponse {
+  Task task = 1;
+}
+
+message DeleteTaskRequest {
+  uint64 id = 1;
+}
+
+message SetTaskArchivedRequest {
+  uint64 id = 1;
+  bool archived = 2;
+}
+
+message SetTaskArchivedResponse {
+  Task task = 1;
+}
+
+// DeleteTaskResponse is intentionally empty; it exists so the RPC can gain
+// response fields later without a breaking change.
+message DeleteTaskResponse {}
