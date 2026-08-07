@@ -1,0 +1,102 @@
+logsBucket: "gs://craffy-build-logs"
+
+options:
+  machineType: E2_HIGHCPU_8
+  logging: GCS_ONLY
+
+timeout: "1800s"
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/craffy/secrets/time-logger-keystore/versions/latest
+      env: KEYSTORE_B64
+    - versionName: projects/craffy/secrets/time-logger-key-properties/versions/latest
+      env: KEY_PROPERTIES
+
+steps:
+  # Unlike the reference project, the tests and linters run before anything is
+  # published. A tag-triggered build is the last chance to catch a regression
+  # before it is deployed, and the suite is fast enough that gating on it costs
+  # almost nothing.
+  - name: "golang:1.26"
+    id: Test
+    waitFor: ["-"]
+    entrypoint: go
+    args: ["test", "./..."]
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: Build
+    waitFor: [Test]
+    args:
+      - "build"
+      - "-t"
+      - "asia-east1-docker.pkg.dev/$PROJECT_ID/private/time-logger:$TAG_NAME"
+      - "-t"
+      - "asia-east1-docker.pkg.dev/$PROJECT_ID/private/time-logger:latest"
+      - "."
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: Push
+    waitFor: [Build]
+    args:
+      - "push"
+      - "--all-tags"
+      - "asia-east1-docker.pkg.dev/$PROJECT_ID/private/time-logger"
+
+  # The Flutter steps run in parallel with the server image: neither depends on
+  # the other, and the APK build dominates the wall-clock time.
+  - name: "ghcr.io/cirruslabs/flutter:stable"
+    id: Write local.properties
+    waitFor: ["-"]
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        FLUTTER_SDK=$(dirname $(dirname $(which flutter)))
+        echo "flutter.sdk=$$FLUTTER_SDK" > mobile/android/local.properties
+        echo "sdk.dir=$$ANDROID_SDK_ROOT" >> mobile/android/local.properties
+
+  - name: "ghcr.io/cirruslabs/flutter:stable"
+    id: Write signing files
+    waitFor: [Write local.properties]
+    entrypoint: bash
+    secretEnv: ["KEYSTORE_B64", "KEY_PROPERTIES"]
+    args:
+      - -c
+      - |
+        echo "$$KEYSTORE_B64" | base64 -d > mobile/android/app/release.jks
+        printf '%s' "$$KEY_PROPERTIES" > mobile/android/key.properties
+
+  - name: "ghcr.io/cirruslabs/flutter:stable"
+    id: Flutter pub get
+    waitFor: [Write signing files]
+    entrypoint: flutter
+    args: ["pub", "get", "--no-example"]
+    dir: mobile
+
+  - name: "ghcr.io/cirruslabs/flutter:stable"
+    id: Flutter test
+    waitFor: [Flutter pub get]
+    entrypoint: flutter
+    args: ["test", "--no-pub"]
+    dir: mobile
+
+  - name: "ghcr.io/cirruslabs/flutter:stable"
+    id: Build APK
+    waitFor: [Flutter test]
+    entrypoint: flutter
+    args:
+      - build
+      - apk
+      - --dart-define=GIT_COMMIT=$SHORT_SHA
+    dir: mobile
+
+  - name: "gcr.io/cloud-builders/gcloud"
+    id: Upload APK
+    waitFor: [Build APK]
+    entrypoint: gcloud
+    args:
+      - storage
+      - cp
+      - mobile/build/app/outputs/flutter-apk/app-release.apk
+      - gs://alexhokl_public/apk/time_logger-$TAG_NAME-$SHORT_SHA.apk

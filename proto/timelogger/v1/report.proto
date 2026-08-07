@@ -1,0 +1,195 @@
+syntax = "proto3";
+
+package timelogger.v1;
+
+import "timelogger/v1/common.proto";
+
+// ReportService aggregates tracked time. Every report bucketises entries using
+// day boundaries in the user's configured timezone, so a report for "today"
+// means the user's local day rather than a UTC day.
+service ReportService {
+  // GetDailyReport summarises a single day (defaults to today).
+  rpc GetDailyReport(GetDailyReportRequest) returns (GetDailyReportResponse);
+  // GetWeeklyReport summarises the week containing the given date, using the
+  // user's configured first day of week.
+  rpc GetWeeklyReport(GetWeeklyReportRequest) returns (GetWeeklyReportResponse);
+  // GetMonthlyReport summarises the calendar month containing the given date.
+  rpc GetMonthlyReport(GetMonthlyReportRequest) returns (GetMonthlyReportResponse);
+  // GetRangeReport summarises an arbitrary inclusive date range.
+  rpc GetRangeReport(GetRangeReportRequest) returns (GetRangeReportResponse);
+  // GetGoalReport compares tracked time against each goal's target for the
+  // goal's current (or requested) period.
+  rpc GetGoalReport(GetGoalReportRequest) returns (GetGoalReportResponse);
+  // GetActivityHeatmap returns one bucket per day over a range, suitable for
+  // rendering a contribution-graph style heatmap.
+  rpc GetActivityHeatmap(GetActivityHeatmapRequest) returns (GetActivityHeatmapResponse);
+  // GetStreaks reports consecutive-day tracking streaks.
+  rpc GetStreaks(GetStreaksRequest) returns (GetStreaksResponse);
+}
+
+// GroupBy selects the dimension a period report is broken down by.
+enum GroupBy {
+  GROUP_BY_UNSPECIFIED = 0;
+  GROUP_BY_PROJECT = 1;
+  GROUP_BY_TASK = 2;
+  GROUP_BY_TAG = 3;
+  GROUP_BY_DAY = 4;
+}
+
+// ReportRow is one bucket of a period report.
+message ReportRow {
+  // Identifier of the grouping dimension: the project, task or tag id. Zero
+  // for GROUP_BY_DAY and for the "no project"/"no task" bucket.
+  uint64 id = 1;
+  // Human-readable label: project name, task name, tag name, or ISO date.
+  string label = 2;
+  int64 total_seconds = 3;
+  int64 entry_count = 4;
+  // Share of the report total, between 0 and 100.
+  double percentage = 5;
+}
+
+message PeriodReport {
+  // Inclusive first day covered by the report.
+  Date from = 1;
+  // Inclusive last day covered by the report.
+  Date to = 2;
+  repeated ReportRow rows = 3;
+  int64 total_seconds = 4;
+  int64 entry_count = 5;
+  // IANA timezone the day boundaries were computed in.
+  string timezone = 6;
+}
+
+message ReportOptions {
+  GroupBy group_by = 1;
+  // Optional filters applied before aggregation.
+  repeated uint64 project_ids = 2;
+  repeated uint64 task_ids = 3;
+  repeated string tags = 4;
+}
+
+// Each period RPC has its own response wrapper around the shared
+// PeriodReport payload so that any one of them can grow new fields
+// independently.
+message GetDailyReportResponse {
+  PeriodReport report = 1;
+}
+
+message GetWeeklyReportResponse {
+  PeriodReport report = 1;
+}
+
+message GetMonthlyReportResponse {
+  PeriodReport report = 1;
+}
+
+message GetRangeReportResponse {
+  PeriodReport report = 1;
+}
+
+message GetDailyReportRequest {
+  // Defaults to today in the user's timezone.
+  optional Date date = 1;
+  ReportOptions options = 2;
+}
+
+message GetWeeklyReportRequest {
+  // Any date within the desired week. Defaults to today.
+  optional Date date = 1;
+  ReportOptions options = 2;
+}
+
+message GetMonthlyReportRequest {
+  // Any date within the desired month. Defaults to today.
+  optional Date date = 1;
+  ReportOptions options = 2;
+}
+
+message GetRangeReportRequest {
+  Date from = 1;
+  Date to = 2;
+  ReportOptions options = 3;
+}
+
+message GetGoalReportRequest {
+  // Any date inside the period to evaluate. Defaults to today.
+  optional Date date = 1;
+  // Restrict the report to a single project. Zero means all goals.
+  uint64 project_id = 2;
+}
+
+message GoalProgress {
+  uint64 goal_id = 1;
+  uint64 project_id = 2;
+  string project_name = 3;
+  uint64 task_id = 4;
+  string task_name = 5;
+  Period period = 6;
+  // Inclusive bounds of the period the progress was measured over.
+  Date period_start = 7;
+  Date period_end = 8;
+  int64 target_seconds = 9;
+  int64 actual_seconds = 10;
+  // actual / target as a percentage; may exceed 100.
+  double percentage = 11;
+  // target - actual; negative when the target has been exceeded.
+  int64 remaining_seconds = 12;
+  bool met = 13;
+}
+
+message GetGoalReportResponse {
+  repeated GoalProgress progress = 1;
+  string timezone = 2;
+}
+
+message GetActivityHeatmapRequest {
+  Date from = 1;
+  Date to = 2;
+  repeated uint64 project_ids = 3;
+}
+
+message HeatmapDay {
+  Date date = 1;
+  int64 total_seconds = 2;
+  int64 entry_count = 3;
+  // Bucketed intensity from 0 (no activity) to 4 (busiest quartile), computed
+  // relative to the busiest day in the requested range.
+  int32 level = 4;
+}
+
+message GetActivityHeatmapResponse {
+  // One entry per day in the range, including days with no activity.
+  repeated HeatmapDay days = 1;
+  int64 max_seconds = 2;
+  int64 total_seconds = 3;
+  string timezone = 4;
+}
+
+message GetStreaksRequest {
+  // Range to search within. Defaults to the last 365 days ending today.
+  optional Date from = 1;
+  optional Date to = 2;
+  // A day counts towards a streak only if at least this many seconds were
+  // tracked. Zero means any tracked time counts.
+  int64 minimum_seconds = 3;
+}
+
+message Streak {
+  Date start_date = 1;
+  Date end_date = 2;
+  int32 days = 3;
+  int64 total_seconds = 4;
+}
+
+message GetStreaksResponse {
+  // Streak that includes today, if any.
+  optional Streak current = 1;
+  // Longest streak found in the range.
+  optional Streak longest = 2;
+  // Every streak in the range, newest first.
+  repeated Streak streaks = 3;
+  // Total number of days in the range with any tracked time.
+  int32 active_days = 4;
+  string timezone = 5;
+}

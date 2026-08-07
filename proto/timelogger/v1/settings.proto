@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package timelogger.v1;
+
+// SettingsService exposes the per-user preferences that affect how the server
+// interprets and aggregates time.
+service SettingsService {
+  rpc GetSettings(GetSettingsRequest) returns (GetSettingsResponse);
+  rpc UpdateSettings(UpdateSettingsRequest) returns (UpdateSettingsResponse);
+}
+
+// DayOfWeek is used to configure which day a reporting week starts on.
+enum DayOfWeek {
+  DAY_OF_WEEK_UNSPECIFIED = 0;
+  DAY_OF_WEEK_MONDAY = 1;
+  DAY_OF_WEEK_TUESDAY = 2;
+  DAY_OF_WEEK_WEDNESDAY = 3;
+  DAY_OF_WEEK_THURSDAY = 4;
+  DAY_OF_WEEK_FRIDAY = 5;
+  DAY_OF_WEEK_SATURDAY = 6;
+  DAY_OF_WEEK_SUNDAY = 7;
+}
+
+message Settings {
+  // IANA timezone name, e.g. "Asia/Hong_Kong". All report day boundaries and
+  // date-only inputs are interpreted in this zone.
+  string timezone = 1;
+  DayOfWeek week_starts_on = 2;
+  // When non-zero, entry durations are rounded up to a multiple of this many
+  // minutes when they are reported. Storage always keeps the exact value.
+  int32 rounding_minutes = 3;
+  // Project pre-selected by clients when starting a timer. Zero means none.
+  uint64 default_project_id = 4;
+  string default_project_name = 5;
+}
+
+message GetSettingsRequest {}
+
+message GetSettingsResponse {
+  Settings settings = 1;
+}
+
+message UpdateSettingsRequest {
+  // Valid mask values: "timezone", "week_starts_on", "rounding_minutes",
+  // "default_project_id".
+  repeated string update_mask = 1;
+  Settings settings = 2;
+}
+
+message UpdateSettingsResponse {
+  Settings settings = 1;
+}

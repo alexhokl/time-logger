@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package timelogger.v1;
+
+import "timelogger/v1/common.proto";
+
+// TagService manages the free-form labels attached to time entries. Tags are
+// related to entries through a join table, so renaming a tag is reflected
+// everywhere it is used.
+service TagService {
+  rpc CreateTag(CreateTagRequest) returns (CreateTagResponse);
+  rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
+  rpc RenameTag(RenameTagRequest) returns (RenameTagResponse);
+  // DeleteTag removes the tag and all of its associations with time entries.
+  // The entries themselves are left untouched.
+  rpc DeleteTag(DeleteTagRequest) returns (DeleteTagResponse);
+}
+
+message Tag {
+  uint64 id = 1;
+  string name = 2;
+  int64 entry_count = 3;
+  int64 total_seconds = 4;
+}
+
+message CreateTagRequest {
+  string name = 1;
+}
+
+message CreateTagResponse {
+  Tag tag = 1;
+}
+
+message ListTagsRequest {
+  bool include_stats = 1;
+  PageRequest page = 2;
+}
+
+message ListTagsResponse {
+  repeated Tag tags = 1;
+  PageResponse page = 2;
+}
+
+message RenameTagRequest {
+  uint64 id = 1;
+  string name = 2;
+}
+
+message RenameTagResponse {
+  Tag tag = 1;
+}
+
+message DeleteTagRequest {
+  uint64 id = 1;
+}
+
+// DeleteTagResponse is intentionally empty; it exists so the RPC can gain
+// response fields later without a breaking change.
+message DeleteTagResponse {}

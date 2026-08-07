@@ -1,0 +1,89 @@
+direction: right
+
+title: |md
+  # time-logger
+| {near: top-center}
+
+clients: Clients {
+  cli: time-logger CLI {
+    shape: rectangle
+    tooltip: Same binary as the server
+  }
+  flutter: Flutter app {
+    shape: rectangle
+    tooltip: Android, iOS, macOS, Linux, Windows
+  }
+
+  flutter.cache: SQLite cache {
+    shape: cylinder
+    tooltip: Projects, tasks, tags, and the pending-entry queue
+  }
+  flutter -> flutter.cache: offline reads and queued writes
+}
+
+tailnet: Tailscale tailnet {
+  style.stroke-dash: 3
+
+  server: time-logger serve {
+    listener: TLS listener :443 {
+      shape: rectangle
+    }
+
+    interceptors: Interceptor chain {
+      recovery: 1. Recovery {
+        tooltip: Outermost, so it also covers the interceptors below
+      }
+      logging: 2. Error logging
+      auth: 3. Tailscale identity {
+        tooltip: Peer IP to Tailscale login to user ID
+      }
+      recovery -> logging -> auth
+    }
+
+    services: gRPC services {
+      project: ProjectService
+      task: TaskService
+      tag: TagService
+      entry: TimeEntryService
+      timer: TimerService
+      goal: GoalService
+      report: ReportService
+      settings: SettingsService
+    }
+
+    meta: Reflection + Health {
+      shape: rectangle
+      style.stroke-dash: 3
+    }
+
+    listener -> interceptors -> services
+  }
+
+  db: SQLite {
+    shape: cylinder
+    tooltip: WAL mode; one file, one instance
+  }
+
+  server.services -> db: scoped by user_id
+}
+
+gcp: Google Cloud {
+  style.stroke-dash: 3
+  otel: OTLP collector {
+    shape: rectangle
+    tooltip: telemetry.googleapis.com, authenticated by ADC
+  }
+}
+
+clients.cli -> tailnet.server.listener: gRPC/TLS
+clients.flutter -> tailnet.server.listener: gRPC/TLS
+
+tailnet.server -> gcp.otel: traces, metrics, logs {
+  style.stroke-dash: 4
+}
+
+note: |md
+  **No REST gateway.** Both clients are first-party and speak
+  protobuf, so an HTTP/JSON layer would only add a second,
+  unauthenticated path to the same data.
+| {near: bottom-center}

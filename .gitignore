@@ -30,3 +30,26 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Local database files created by `task run` or manual testing.
+*.db
+*.db-wal
+*.db-shm
+
+# Tailscale node state.
+tailscale-state/
+
+# Flutter
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins-dependencies
+mobile/ios/Pods/
+mobile/macos/Pods/
+mobile/android/local.properties
+mobile/android/key.properties
+mobile/android/app/release.jks
+mobile/coverage/
+mobile/*.iml
+
+# Generated coverage reports
+coverage.html

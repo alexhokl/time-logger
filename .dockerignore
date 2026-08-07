@@ -1,0 +1,19 @@
+# Build artefacts and local state that must never reach the image, both to keep
+# the build context small and to avoid baking a developer's database or
+# Tailscale credentials into a published layer.
+.git
+.gitignore
+*.db
+*.db-wal
+*.db-shm
+tailscale-state/
+coverage.*
+*.out
+*.html
+
+# The Flutter app is built by a separate Cloud Build step, not by the server
+# image, so its sources and build output are pure weight here.
+mobile/
+documentation/
+README.md
+AGENTS.md

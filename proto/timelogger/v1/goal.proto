@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package timelogger.v1;
+
+import "timelogger/v1/common.proto";
+
+// GoalService manages recurring targets for how much time should be spent on a
+// project or task within a period.
+service GoalService {
+  rpc CreateGoal(CreateGoalRequest) returns (CreateGoalResponse);
+  rpc ListGoals(ListGoalsRequest) returns (ListGoalsResponse);
+  rpc GetGoal(GetGoalRequest) returns (GetGoalResponse);
+  rpc UpdateGoal(UpdateGoalRequest) returns (UpdateGoalResponse);
+  rpc DeleteGoal(DeleteGoalRequest) returns (DeleteGoalResponse);
+}
+
+message Goal {
+  uint64 id = 1;
+  // Zero means the goal covers all projects.
+  uint64 project_id = 2;
+  string project_name = 3;
+  // Zero means the goal covers all tasks within the project.
+  uint64 task_id = 4;
+  string task_name = 5;
+  // Target expressed in hours to keep the CLI and UI natural; the server
+  // compares against seconds internally.
+  double target_hours = 6;
+  Period period = 7;
+  // First date the goal applies to, in the user's timezone.
+  Date start_date = 8;
+  // Last date the goal applies to. Unset means the goal is open-ended.
+  optional Date end_date = 9;
+}
+
+message CreateGoalRequest {
+  uint64 project_id = 1;
+  uint64 task_id = 2;
+  double target_hours = 3;
+  Period period = 4;
+  Date start_date = 5;
+  optional Date end_date = 6;
+}
+
+message CreateGoalResponse {
+  Goal goal = 1;
+}
+
+message ListGoalsRequest {
+  // Restrict to goals scoped to this project. Zero means no filter.
+  uint64 project_id = 1;
+  // When true only goals whose window includes today are returned.
+  bool active_only = 2;
+  PageRequest page = 3;
+}
+
+message ListGoalsResponse {
+  repeated Goal goals = 1;
+  PageResponse page = 2;
+}
+
+message GetGoalRequest {
+  uint64 id = 1;
+}
+
+message GetGoalResponse {
+  Goal goal = 1;
+}
+
+message UpdateGoalRequest {
+  uint64 id = 1;
+  // Valid mask values: "project_id", "task_id", "target_hours", "period",
+  // "start_date", "end_date".
+  repeated string update_mask = 2;
+  uint64 project_id = 3;
+  uint64 task_id = 4;
+  double target_hours = 5;
+  Period period = 6;
+  Date start_date = 7;
+  optional Date end_date = 8;
+}
+
+message UpdateGoalResponse {
+  Goal goal = 1;
+}
+
+message DeleteGoalRequest {
+  uint64 id = 1;
+}
+
+// DeleteGoalResponse is intentionally empty; it exists so the RPC can gain
+// response fields later without a breaking change.
+message DeleteGoalResponse {}

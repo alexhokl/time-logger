@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package timelogger.v1;
+
+import "google/protobuf/timestamp.proto";
+import "timelogger/v1/entry.proto";
+
+// TimerService drives the live stopwatch. A running timer is stored as an
+// ordinary time entry whose end_time is unset, so stopping a timer is simply a
+// matter of filling that field in.
+//
+// At most one timer may run per user; this is enforced both by the handler and
+// by a partial unique index in the database.
+service TimerService {
+  // StartTimer opens a new running entry. If a timer is already running the
+  // call fails with FAILED_PRECONDITION and the running entry is returned in
+  // the response details.
+  rpc StartTimer(StartTimerRequest) returns (StartTimerResponse);
+  // StopTimer closes the running entry. Fails with FAILED_PRECONDITION when no
+  // timer is running.
+  rpc StopTimer(StopTimerRequest) returns (StopTimerResponse);
+  // GetRunningTimer returns the running entry, or an empty response when
+  // nothing is running. It never fails just because no timer is active.
+  rpc GetRunningTimer(GetRunningTimerRequest) returns (GetRunningTimerResponse);
+  // CancelRunningTimer discards the running entry without recording it.
+  rpc CancelRunningTimer(CancelRunningTimerRequest) returns (CancelRunningTimerResponse);
+}
+
+message StartTimerRequest {
+  string description = 1;
+  uint64 project_id = 2;
+  uint64 task_id = 3;
+  repeated string tags = 4;
+  // Defaults to the server's current time when unset. Useful for backdating a
+  // timer the user forgot to start.
+  optional google.protobuf.Timestamp start_time = 5;
+}
+
+message StartTimerResponse {
+  TimeEntry entry = 1;
+}
+
+message StopTimerRequest {
+  // Defaults to the server's current time when unset. Must be at or after the
+  // running entry's start_time.
+  optional google.protobuf.Timestamp end_time = 1;
+  // When set, the running entry's description is replaced before it is
+  // closed. Lets the user name the work after the fact.
+  optional string description = 2;
+}
+
+message StopTimerResponse {
+  TimeEntry entry = 1;
+}
+
+message GetRunningTimerRequest {}
+
+message GetRunningTimerResponse {
+  // Unset when no timer is running.
+  optional TimeEntry entry = 1;
+}
+
+message CancelRunningTimerRequest {}
+
+// CancelRunningTimerResponse is intentionally empty; it exists so the RPC can gain
+// response fields later without a breaking change.
+message CancelRunningTimerResponse {}
