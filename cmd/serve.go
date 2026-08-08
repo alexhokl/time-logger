@@ -56,7 +56,7 @@ request as a single local user, which is intended for development. With
 caller by their Tailscale login.`,
 	RunE: runServe,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		bindEnvironmentVariablesToServeOptions(&serveOpts)
+		bindEnvironmentVariablesToServeOptions(cmd, &serveOpts)
 	},
 }
 
@@ -73,10 +73,13 @@ func init() {
 		"directory in which to persist Tailscale state")
 }
 
-func bindEnvironmentVariablesToServeOptions(opts *serveOptions) {
-	if opts.TailscaleStateDirectory == "" {
-		opts.TailscaleStateDirectory = viper.GetString("ts_state_dir")
-	}
+// bindEnvironmentVariablesToServeOptions falls back to Viper for any flag the
+// user did not explicitly pass. Flags whose zero value is also a valid,
+// non-default setting (Port and TailscaleStateDirectory both default to a
+// non-zero value) are checked via cmd.Flags().Changed rather than a zero-value
+// comparison, since the zero value is never actually reached for them once
+// cobra has applied its compiled-in default.
+func bindEnvironmentVariablesToServeOptions(cmd *cobra.Command, opts *serveOptions) {
 	if opts.TailscaleAuthKey == "" {
 		opts.TailscaleAuthKey = viper.GetString("ts_auth_key")
 	}
@@ -86,8 +89,15 @@ func bindEnvironmentVariablesToServeOptions(opts *serveOptions) {
 	if opts.DatabaseFilePath == "" {
 		opts.DatabaseFilePath = viper.GetString("database")
 	}
-	if opts.Port == 0 {
-		opts.Port = viper.GetInt("port")
+	if !cmd.Flags().Changed("ts-state-dir") {
+		if v := viper.GetString("ts_state_dir"); v != "" {
+			opts.TailscaleStateDirectory = v
+		}
+	}
+	if !cmd.Flags().Changed("port") {
+		if v := viper.GetInt("port"); v != 0 {
+			opts.Port = v
+		}
 	}
 }
 
@@ -194,7 +204,8 @@ func runServe(cmd *cobra.Command, _ []string) error {
 	})
 
 	g.Go(func() error {
-		slog.Info("gRPC server is serving",
+		slog.Info(
+			"gRPC server is serving",
 			slog.Int("port", serveOpts.Port),
 			slog.Bool("tailscale", serveOpts.Hostname != ""),
 		)
