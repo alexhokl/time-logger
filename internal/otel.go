@@ -80,7 +80,8 @@ func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err e
 		return func(context.Context) error { return nil }, fmt.Errorf("failed to build GCP gRPC connection: %w", err)
 	}
 
-	shutdown, err = telemetry.Setup(ctx,
+	shutdown, err = telemetry.Setup(
+		ctx,
 		telemetry.WithGRPCConn(conn),
 		telemetry.WithResourceAttributes(gcpResourceAttributes()...),
 		// Gating already happened above via IsSDKDisabled; Setup's default
@@ -98,7 +99,7 @@ func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err e
 			// deadlocking the process on that logger's mutex. Writing
 			// straight to stderr breaks the cycle.
 			return slogmulti.Fanout(
-				telemetry.NewGCPConsoleHandler(slog.NewTextHandler(os.Stderr, nil)),
+				// telemetry.NewGCPConsoleHandler(slog.NewTextHandler(os.Stderr, nil)),
 				otelslog.NewHandler(telemetry.ServiceName(), otelslog.WithLoggerProvider(lp)),
 			)
 		}),
@@ -127,7 +128,8 @@ func SetupOTel(ctx context.Context) (shutdown func(context.Context) error, err e
 func gcpResourceAttributes() []attribute.KeyValue {
 	var attrs []attribute.KeyValue
 	if project := os.Getenv("GOOGLE_CLOUD_PROJECT"); project != "" {
-		attrs = append(attrs,
+		attrs = append(
+			attrs,
 			semconv.CloudProviderGCP,
 			semconv.CloudAccountID(project),
 			attribute.String("gcp.project_id", project),
