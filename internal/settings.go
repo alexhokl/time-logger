@@ -109,6 +109,11 @@ func (s *SettingsService) UpdateSettings(
 		return nil, err
 	}
 
+	// A no-op update (empty mask) is not a mutation, so it is not logged.
+	if len(updates) > 0 {
+		logMutation(ctx, timeloggerv1.SettingsService_UpdateSettings_FullMethodName, user.UserID)
+	}
+
 	return &timeloggerv1.UpdateSettingsResponse{
 		Settings: toProtoSettings(refreshed.Settings, s.defaultProjectName(ctx, refreshed)),
 	}, nil

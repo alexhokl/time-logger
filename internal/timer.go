@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -107,6 +108,9 @@ func (s *TimerService) StartTimer(
 		return nil, toStatusError(err)
 	}
 
+	logMutation(ctx, timeloggerv1.TimerService_StartTimer_FullMethodName, user.UserID,
+		slog.Uint64("entry_id", uint64(loaded.ID)))
+
 	return &timeloggerv1.StartTimerResponse{
 		Entry: toProtoEntry(*loaded, now, user.Settings.RoundingMinutes),
 	}, nil
@@ -184,6 +188,9 @@ func (s *TimerService) StopTimer(
 
 	recordTrackedSeconds(ctx, entry.ElapsedSeconds(now))
 
+	logMutation(ctx, timeloggerv1.TimerService_StopTimer_FullMethodName, user.UserID,
+		slog.Uint64("entry_id", uint64(stoppedID)))
+
 	return &timeloggerv1.StopTimerResponse{
 		Entry: toProtoEntry(*entry, now, user.Settings.RoundingMinutes),
 	}, nil
@@ -236,6 +243,8 @@ func (s *TimerService) CancelRunningTimer(
 	ctx, span := startSpan(ctx, "db.cancel_timer")
 	defer span.End()
 
+	var cancelledID uint
+
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		running, err := findRunningEntry(ctx, tx, user.UserID)
 		if err != nil {
@@ -248,7 +257,11 @@ func (s *TimerService) CancelRunningTimer(
 			Delete(&database.EntryTag{}).Error; err != nil {
 			return err
 		}
-		return tx.Delete(&database.TimeEntry{}, running.ID).Error
+		if err := tx.Delete(&database.TimeEntry{}, running.ID).Error; err != nil {
+			return err
+		}
+		cancelledID = running.ID
+		return nil
 	})
 	if err != nil {
 		recordSpanError(span, err)
@@ -257,6 +270,9 @@ func (s *TimerService) CancelRunningTimer(
 	endSpanOk(span)
 
 	recordTimerStop(ctx, "cancel")
+
+	logMutation(ctx, timeloggerv1.TimerService_CancelRunningTimer_FullMethodName, user.UserID,
+		slog.Uint64("entry_id", uint64(cancelledID)))
 
 	return &timeloggerv1.CancelRunningTimerResponse{}, nil
 }

@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"gorm.io/gorm"
@@ -55,6 +56,9 @@ func (s *GoalService) CreateGoal(
 	if err != nil {
 		return nil, toStatusError(err)
 	}
+
+	logMutation(ctx, timeloggerv1.GoalService_CreateGoal_FullMethodName, user.UserID,
+		slog.Uint64("goal_id", uint64(loaded.ID)))
 
 	return &timeloggerv1.CreateGoalResponse{Goal: toProtoGoal(*loaded, user.Location)}, nil
 }
@@ -213,6 +217,9 @@ func (s *GoalService) UpdateGoal(
 		return nil, toStatusError(err)
 	}
 
+	logMutation(ctx, timeloggerv1.GoalService_UpdateGoal_FullMethodName, user.UserID,
+		slog.Uint64("goal_id", req.GetId()))
+
 	return &timeloggerv1.UpdateGoalResponse{Goal: toProtoGoal(*reloaded, user.Location)}, nil
 }
 
@@ -238,6 +245,9 @@ func (s *GoalService) DeleteGoal(
 		return nil, toStatusError(err)
 	}
 	endSpanOk(span)
+
+	logMutation(ctx, timeloggerv1.GoalService_DeleteGoal_FullMethodName, user.UserID,
+		slog.Uint64("goal_id", req.GetId()))
 
 	return &timeloggerv1.DeleteGoalResponse{}, nil
 }

@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"gorm.io/gorm"
@@ -61,6 +62,9 @@ func (s *TaskService) CreateTask(
 	endSpanOk(span)
 
 	task.Project = project
+	logMutation(ctx, timeloggerv1.TaskService_CreateTask_FullMethodName, user.UserID,
+		slog.Uint64("task_id", uint64(task.ID)))
+
 	return &timeloggerv1.CreateTaskResponse{Task: toProtoTask(task, entryStats{})}, nil
 }
 
@@ -218,6 +222,9 @@ func (s *TaskService) UpdateTask(
 		return nil, toStatusError(err)
 	}
 
+	logMutation(ctx, timeloggerv1.TaskService_UpdateTask_FullMethodName, user.UserID,
+		slog.Uint64("task_id", req.GetId()))
+
 	return &timeloggerv1.UpdateTaskResponse{Task: toProtoTask(*reloaded, entryStats{})}, nil
 }
 
@@ -262,6 +269,9 @@ func (s *TaskService) DeleteTask(
 	}
 	endSpanOk(span)
 
+	logMutation(ctx, timeloggerv1.TaskService_DeleteTask_FullMethodName, user.UserID,
+		slog.Uint64("task_id", req.GetId()))
+
 	return &timeloggerv1.DeleteTaskResponse{}, nil
 }
 
@@ -288,6 +298,10 @@ func (s *TaskService) SetTaskArchived(
 		return nil, toStatusError(err)
 	}
 	endSpanOk(span)
+
+	logMutation(ctx, timeloggerv1.TaskService_SetTaskArchived_FullMethodName, user.UserID,
+		slog.Uint64("task_id", req.GetId()),
+		slog.Bool("archived", req.GetArchived()))
 
 	return &timeloggerv1.SetTaskArchivedResponse{Task: toProtoTask(*task, entryStats{})}, nil
 }

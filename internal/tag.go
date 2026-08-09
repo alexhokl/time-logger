@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"gorm.io/gorm"
@@ -47,6 +48,9 @@ func (s *TagService) CreateTag(
 		return nil, toStatusError(err)
 	}
 	endSpanOk(span)
+
+	logMutation(ctx, timeloggerv1.TagService_CreateTag_FullMethodName, user.UserID,
+		slog.Uint64("tag_id", uint64(tag.ID)))
 
 	return &timeloggerv1.CreateTagResponse{Tag: toProtoTag(tag, entryStats{})}, nil
 }
@@ -135,6 +139,9 @@ func (s *TagService) RenameTag(
 	}
 	endSpanOk(span)
 
+	logMutation(ctx, timeloggerv1.TagService_RenameTag_FullMethodName, user.UserID,
+		slog.Uint64("tag_id", req.GetId()))
+
 	return &timeloggerv1.RenameTagResponse{Tag: toProtoTag(*tag, entryStats{})}, nil
 }
 
@@ -170,6 +177,9 @@ func (s *TagService) DeleteTag(
 		return nil, toStatusError(err)
 	}
 	endSpanOk(span)
+
+	logMutation(ctx, timeloggerv1.TagService_DeleteTag_FullMethodName, user.UserID,
+		slog.Uint64("tag_id", req.GetId()))
 
 	return &timeloggerv1.DeleteTagResponse{}, nil
 }

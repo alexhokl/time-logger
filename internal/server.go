@@ -235,6 +235,19 @@ func toStatusError(err error) error {
 	return status.Error(codes.Internal, "internal server error")
 }
 
+// logMutation records a successful data-mutation gRPC call for audit. It
+// complements ErrorLoggingInterceptor, which only logs failures. Callers pass
+// the generated *_FullMethodName constant and any resource-specific attributes
+// (created id, affected id, batch count, etc.).
+func logMutation(ctx context.Context, method string, userID uint, attrs ...slog.Attr) {
+	args := make([]any, 0, 2+len(attrs))
+	args = append(args, slog.String("method", method), slog.Uint64("user_id", uint64(userID)))
+	for _, a := range attrs {
+		args = append(args, a)
+	}
+	slog.InfoContext(ctx, "mutation", args...)
+}
+
 // isUniqueViolation reports whether an error came from a unique index. GORM's
 // SQLite driver does not always wrap these as gorm.ErrDuplicatedKey, so the
 // driver message is inspected as a fallback. Used to turn a race on the

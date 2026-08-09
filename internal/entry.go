@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -67,6 +68,9 @@ func (s *TimeEntryService) CreateEntry(
 
 	recordTrackedSeconds(ctx, loaded.ElapsedSeconds(now))
 
+	logMutation(ctx, timeloggerv1.TimeEntryService_CreateEntry_FullMethodName, user.UserID,
+		slog.Uint64("entry_id", uint64(loaded.ID)))
+
 	return &timeloggerv1.CreateEntryResponse{
 		Entry: toProtoEntry(*loaded, now, user.Settings.RoundingMinutes),
 	}, nil
@@ -127,6 +131,9 @@ func (s *TimeEntryService) CreateEntries(
 	for _, e := range entries {
 		out = append(out, toProtoEntry(e, now, user.Settings.RoundingMinutes))
 	}
+
+	logMutation(ctx, timeloggerv1.TimeEntryService_CreateEntries_FullMethodName, user.UserID,
+		slog.Int("count", len(out)))
 
 	return &timeloggerv1.CreateEntriesResponse{Entries: out}, nil
 }
@@ -311,6 +318,9 @@ func (s *TimeEntryService) UpdateEntry(
 		return nil, toStatusError(err)
 	}
 
+	logMutation(ctx, timeloggerv1.TimeEntryService_UpdateEntry_FullMethodName, user.UserID,
+		slog.Uint64("entry_id", req.GetId()))
+
 	return &timeloggerv1.UpdateEntryResponse{
 		Entry: toProtoEntry(*reloaded, now, user.Settings.RoundingMinutes),
 	}, nil
@@ -345,6 +355,9 @@ func (s *TimeEntryService) DeleteEntry(
 		return nil, toStatusError(err)
 	}
 	endSpanOk(span)
+
+	logMutation(ctx, timeloggerv1.TimeEntryService_DeleteEntry_FullMethodName, user.UserID,
+		slog.Uint64("entry_id", req.GetId()))
 
 	return &timeloggerv1.DeleteEntryResponse{}, nil
 }
@@ -444,6 +457,9 @@ func (s *TimeEntryService) CopyEntries(
 	for _, e := range entries {
 		out = append(out, toProtoEntry(e, now, user.Settings.RoundingMinutes))
 	}
+
+	logMutation(ctx, timeloggerv1.TimeEntryService_CopyEntries_FullMethodName, user.UserID,
+		slog.Int("count", len(out)))
 
 	return &timeloggerv1.CopyEntriesResponse{Entries: out}, nil
 }

@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"gorm.io/gorm"
@@ -52,6 +53,9 @@ func (s *ProjectService) CreateProject(
 		return nil, toStatusError(err)
 	}
 	endSpanOk(span)
+
+	logMutation(ctx, timeloggerv1.ProjectService_CreateProject_FullMethodName, user.UserID,
+		slog.Uint64("project_id", uint64(project.ID)))
 
 	return &timeloggerv1.CreateProjectResponse{
 		Project: toProtoProject(project, entryStats{}),
@@ -185,6 +189,9 @@ func (s *ProjectService) UpdateProject(
 	}
 	endSpanOk(span)
 
+	logMutation(ctx, timeloggerv1.ProjectService_UpdateProject_FullMethodName, user.UserID,
+		slog.Uint64("project_id", req.GetId()))
+
 	return &timeloggerv1.UpdateProjectResponse{Project: toProtoProject(*project, entryStats{})}, nil
 }
 
@@ -248,6 +255,9 @@ func (s *ProjectService) DeleteProject(
 	// The settings cache may now hold a stale default project.
 	resetSettingsCacheFor(user.UserID)
 
+	logMutation(ctx, timeloggerv1.ProjectService_DeleteProject_FullMethodName, user.UserID,
+		slog.Uint64("project_id", req.GetId()))
+
 	return &timeloggerv1.DeleteProjectResponse{}, nil
 }
 
@@ -274,6 +284,10 @@ func (s *ProjectService) SetProjectArchived(
 		return nil, toStatusError(err)
 	}
 	endSpanOk(span)
+
+	logMutation(ctx, timeloggerv1.ProjectService_SetProjectArchived_FullMethodName, user.UserID,
+		slog.Uint64("project_id", req.GetId()),
+		slog.Bool("archived", req.GetArchived()))
 
 	return &timeloggerv1.SetProjectArchivedResponse{
 		Project: toProtoProject(*project, entryStats{}),
