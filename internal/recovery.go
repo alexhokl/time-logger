@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"runtime/debug"
 
-	otelcodes "go.opentelemetry.io/otel/codes"
+	"github.com/alexhokl/helper/telemetry"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -38,8 +38,7 @@ func RecoveryInterceptor(
 		panicErr := fmt.Errorf("panic recovered in %s: %v", info.FullMethod, recovered)
 
 		span := trace.SpanFromContext(ctx)
-		span.RecordError(panicErr)
-		span.SetStatus(otelcodes.Error, panicErr.Error())
+		telemetry.RecordSpanError(span, panicErr)
 
 		slog.ErrorContext(
 			ctx,
