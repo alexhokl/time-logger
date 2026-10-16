@@ -147,6 +147,52 @@ batch means one broken entry cannot block the rest of the queue behind it.
 A queued entry is only ever deleted once the server confirms it stored it; a
 failed upload records the error and keeps the entry.
 
+## Android Device Setup
+
+### Enable Developer Options
+
+1. On the Android device, go to `Settings` → `About phone`
+2. Tap **Build number** 7 times until you see "You are now a developer!"
+3. Go back to `Settings` → **Developer options**
+4. Enable **USB debugging**
+
+### Pair an Android device using Android Studio
+
+1. On the Android device, go to `Settings` → `Developer options` → enable **Wireless debugging**
+2. Tap **Pair device with pairing code** — note the IP address, port, and pairing code shown
+3. In Android Studio, open the device dropdown in the toolbar and select **Pair Devices Using Wi-Fi**
+4. Click **Pair using pairing code** and enter the IP address, port, and pairing code from the device
+5. Once paired, the device will appear in the device list and can be selected for running/debugging
+
+### Uninstall the app from a connected Android device using adb
+
+To remove the existing installation (required when the signing key has changed):
+
+```sh
+adb uninstall dev.alexho.time_logger
+```
+
+### Install the app on a connected Android device using adb
+
+Build the APK with `task apk`, then ensure the device is connected via USB with
+USB debugging enabled and appears in:
+
+```sh
+adb devices
+```
+
+Then install the APK:
+
+```sh
+adb install mobile/build/app/outputs/flutter-apk/app-release.apk
+```
+
+If upgrading an existing installation signed with the same key, use the `-r` flag:
+
+```sh
+adb install -r mobile/build/app/outputs/flutter-apk/app-release.apk
+```
+
 ## Development
 
 ```sh
