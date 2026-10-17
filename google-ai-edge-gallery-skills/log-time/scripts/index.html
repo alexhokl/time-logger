@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+</head>
+
+<body>
+    <script>
+        // Mirrors the rules of mobile/lib/services/intent_service.dart, so a
+        // mistake is reported to the model here instead of being dropped
+        // silently by the app.
+
+        function text(value) {
+            if (value === undefined || value === null) return null;
+            const trimmed = String(value).trim();
+            return trimmed === '' ? null : trimmed;
+        }
+
+        // Returns whole minutes. A bare number is minutes, as in the CLI.
+        function normaliseDuration(value) {
+            const input = text(value);
+            if (input === null) return null;
+            let minutes;
+            if (/^\d+$/.test(input)) {
+                minutes = Number(input);
+            } else {
+                const match = input.match(
+                    /^(?:(\d+(?:\.\d+)?)\s*h(?:ours?|rs?)?)?\s*(?:(\d+)\s*m(?:in(?:ute)?s?)?)?$/i);
+                if (!match || (match[1] === undefined && match[2] === undefined)) {
+                    throw new Error(`duration must be minutes or like 1h30m: ${value}`);
+                }
+                minutes = Math.round(Number(match[1] ?? 0) * 60) + Number(match[2] ?? 0);
+            }
+            if (!(minutes > 0)) {
+                throw new Error(`duration must be positive: ${value}`);
+            }
+            return String(minutes);
+        }
+
+        function normaliseTime(value, name) {
+            const input = text(value);
+            if (input === null) return null;
+            const match = input.match(/^(\d{1,2}):(\d{2})$/);
+            if (!match || +match[1] > 23 || +match[2] > 59) {
+                throw new Error(`${name} must be HH:MM in 24-hour time: ${value}`);
+            }
+            return `${match[1].padStart(2, '0')}:${match[2]}`;
+        }
+
+        function normaliseDate(value) {
+            const input = text(value);
+            if (input === null) return null;
+            const match = input.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (!match) {
+                throw new Error(`date must be YYYY-MM-DD: ${value}`);
+            }
+            const date = new Date(Date.UTC(+match[1], +match[2] - 1, +match[3]));
+            if (date.getUTCMonth() !== +match[2] - 1 || date.getUTCDate() !== +match[3]) {
+                throw new Error(`invalid date: ${value}`);
+            }
+            return input;
+        }
+
+        // Lowercased like the server stores them, so they match existing tags.
+        function normaliseTags(value) {
+            if (value === undefined || value === null) return null;
+            const list = Array.isArray(value) ? value : String(value).split(',');
+            const tags = [...new Set(list.map((t) => String(t).trim().toLowerCase())
+                .filter((t) => t !== ''))];
+            return tags.length === 0 ? null : tags.join(',');
+        }
+
+        function buildLink(input) {
+            const mode = text(input.mode) ?? 'entry';
+            if (mode !== 'timer' && mode !== 'entry') {
+                throw new Error(`mode must be "timer" or "entry": ${input.mode}`);
+            }
+            const params = [
+                ['description', text(input.description)],
+                ['project', text(input.project)],
+                ['task', text(input.task)],
+                ['tags', normaliseTags(input.tags)],
+            ];
+            if (mode === 'entry') {
+                params.push(
+                    ['date', normaliseDate(input.date)],
+                    ['start', normaliseTime(input.start, 'start')],
+                    ['end', normaliseTime(input.end, 'end')],
+                    ['duration', normaliseDuration(input.duration)],
+                );
+            }
+            const query = params
+                .filter(([, value]) => value)
+                .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+                .join('&');
+            const base = mode === 'timer' ? 'timelogger://timer' : 'timelogger://entry/new';
+            return base + (query ? `?${query}` : '');
+        }
+
+        window['ai_edge_gallery_get_result'] = async (data) => {
+            try {
+                const input = JSON.parse(data || '{}');
+                return JSON.stringify({
+                    result: buildLink(input),
+                });
+            } catch (e) {
+                console.error(e);
+                return JSON.stringify({
+                    error: `Failed to build link: ${e.message}`,
+                });
+            }
+        };
+    </script>
+</body>
+
+</html>

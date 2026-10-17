@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="process_text_label">Log time</string>
+    <string name="shortcut_timer_short">Timer</string>
+    <string name="shortcut_timer_long">Start a timer</string>
+    <string name="shortcut_new_entry_short">New entry</string>
+    <string name="shortcut_new_entry_long">Log an entry</string>
+    <string name="shortcut_entries_short">Entries</string>
+    <string name="shortcut_entries_long">View entries</string>
+    <string name="shortcut_reports_short">Reports</string>
+    <string name="shortcut_reports_long">View reports</string>
+</resources>

@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/catalog_provider.dart';
 import '../providers/entries_provider.dart';
+import '../providers/intent_provider.dart';
 import '../providers/timer_provider.dart';
 import '../proto/timelogger/v1/entry.pb.dart';
 import '../proto/timelogger/v1/project.pb.dart';
+import '../services/intent_service.dart';
 import '../ui/common.dart';
 
 /// The stopwatch screen: start, watch, stop.
@@ -19,6 +21,55 @@ class HomePage extends ConsumerStatefulWidget {
 class _HomePageState extends ConsumerState<HomePage> {
   final _descriptionController = TextEditingController();
   int _projectId = 0;
+  int _taskId = 0;
+  String _taskName = '';
+
+  /// Task and tags only ever arrive with a pre-fill from another app; the
+  /// form has no fields of its own for them, so they are shown as removable
+  /// chips instead.
+  List<String> _tags = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    // fireImmediately covers a draft set before this page first built.
+    ref.listenManual(timerDraftProvider, (_, draft) {
+      if (draft != null) _applyDraft(draft);
+    }, fireImmediately: true);
+  }
+
+  Future<void> _applyDraft(StartTimerIntent draft) async {
+    ref.read(timerDraftProvider.notifier).clear();
+
+    final running = await ref.read(runningTimerProvider.future);
+    if (!mounted) return;
+    if (running != null) {
+      showMessage(context, 'A timer is already running', isError: true);
+      return;
+    }
+
+    final resolved = await resolveNames(
+      ref,
+      project: draft.project,
+      task: draft.task,
+    );
+    if (!mounted) return;
+
+    setState(() {
+      _descriptionController.text = draft.description ?? '';
+      _projectId = resolved.projectId;
+      _taskId = resolved.taskId;
+      _taskName = resolved.taskName;
+      _tags = draft.tags;
+    });
+    if (resolved.missing.isNotEmpty) {
+      showMessage(
+        context,
+        '${resolved.missing.join(', ')} not found',
+        isError: true,
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -82,6 +133,27 @@ class _HomePageState extends ConsumerState<HomePage> {
             error: (_, _) => const Text('Projects unavailable'),
             data: (list) => _buildProjectPicker(list),
           ),
+          if (_taskId != 0 || _tags.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              children: [
+                if (_taskId != 0)
+                  InputChip(
+                    avatar: const Icon(Icons.task_alt),
+                    label: Text(_taskName),
+                    onDeleted: () => setState(() => _taskId = 0),
+                  ),
+                for (final tag in _tags)
+                  InputChip(
+                    label: Text(tag),
+                    onDeleted: () => setState(
+                      () => _tags = _tags.where((t) => t != tag).toList(),
+                    ),
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: _start,
@@ -98,6 +170,9 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   Widget _buildProjectPicker(List<Project> projects) {
     return DropdownButtonFormField<int>(
+      // Keyed on the value so a pre-fill from another app replaces the
+      // selection; initialValue alone is only read once.
+      key: ValueKey(_projectId),
       initialValue: _projectId,
       decoration: const InputDecoration(
         labelText: 'Project',
@@ -109,7 +184,11 @@ class _HomePageState extends ConsumerState<HomePage> {
           (p) => DropdownMenuItem(value: p.id.toInt(), child: Text(p.name)),
         ),
       ],
-      onChanged: (value) => setState(() => _projectId = value ?? 0),
+      onChanged: (value) => setState(() {
+        _projectId = value ?? 0;
+        // A task from a pre-fill belongs to the previous project.
+        _taskId = 0;
+      }),
     );
   }
 
@@ -186,8 +265,14 @@ class _HomePageState extends ConsumerState<HomePage> {
           .start(
             description: _descriptionController.text.trim(),
             projectId: _projectId,
+            taskId: _taskId,
+            tags: _tags,
           );
       _descriptionController.clear();
+      setState(() {
+        _taskId = 0;
+        _tags = const [];
+      });
     } catch (error) {
       if (mounted) {
         showMessage(context, describeError(error), isError: true);

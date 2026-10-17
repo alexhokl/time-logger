@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/catalog_provider.dart';
 import '../providers/entries_provider.dart';
+import '../providers/intent_provider.dart';
 import '../proto/timelogger/v1/entry.pb.dart';
 import '../proto/timelogger/v1/project.pb.dart';
+import '../services/intent_service.dart';
 import '../ui/common.dart';
 
 /// Creates or edits a single entry.
@@ -14,10 +16,14 @@ import '../ui/common.dart';
 /// work after the fact. The server accepts either, but a single consistent
 /// form is less confusing than offering both here.
 class EntryEditorPage extends ConsumerStatefulWidget {
-  const EntryEditorPage({super.key, this.entry});
+  const EntryEditorPage({super.key, this.entry, this.initial});
 
   /// The entry being edited, or null when creating a new one.
   final TimeEntry? entry;
+
+  /// Values from another app to pre-fill a new entry with. Ignored when
+  /// editing.
+  final CreateEntryIntent? initial;
 
   @override
   ConsumerState<EntryEditorPage> createState() => _EntryEditorPageState();
@@ -60,14 +66,44 @@ class _EntryEditorPageState extends ConsumerState<EntryEditorPage> {
     } else {
       // A new entry defaults to an hour ending now, which is the most common
       // thing someone is about to log.
-      final start = now.subtract(const Duration(hours: 1));
-      _date = DateTime(now.year, now.month, now.day);
-      _start = TimeOfDay.fromDateTime(start);
-      _end = TimeOfDay.fromDateTime(now);
+      final initial = widget.initial ?? const CreateEntryIntent();
+      final span = initial.resolveSpan(now);
+      _date = DateTime(span.start.year, span.start.month, span.start.day);
+      _start = TimeOfDay.fromDateTime(span.start);
+      _end = TimeOfDay.fromDateTime(span.end);
       _projectId = 0;
       _taskId = 0;
-      _descriptionController = TextEditingController();
-      _tagsController = TextEditingController();
+      _descriptionController = TextEditingController(
+        text: initial.description ?? '',
+      );
+      _tagsController = TextEditingController(text: initial.tags.join(', '));
+      if (initial.project != null || initial.task != null) {
+        _resolveNames(initial);
+      }
+    }
+  }
+
+  /// Turns the project and task names from another app into IDs once the
+  /// catalog is loaded. A name that matches nothing is reported and left
+  /// unset rather than guessed at.
+  Future<void> _resolveNames(CreateEntryIntent initial) async {
+    final resolved = await resolveNames(
+      ref,
+      project: initial.project,
+      task: initial.task,
+    );
+    if (!mounted) return;
+
+    setState(() {
+      _projectId = resolved.projectId;
+      _taskId = resolved.taskId;
+    });
+    if (resolved.missing.isNotEmpty) {
+      showMessage(
+        context,
+        '${resolved.missing.join(', ')} not found',
+        isError: true,
+      );
     }
   }
 
@@ -154,6 +190,7 @@ class _EntryEditorPageState extends ConsumerState<EntryEditorPage> {
             data: (list) => list.isEmpty
                 ? const SizedBox.shrink()
                 : DropdownButtonFormField<int>(
+                    key: ValueKey(_taskId),
                     initialValue: _taskId,
                     decoration: const InputDecoration(
                       labelText: 'Task',
@@ -187,6 +224,9 @@ class _EntryEditorPageState extends ConsumerState<EntryEditorPage> {
 
   Widget _buildProjectPicker(List<Project> projects) {
     return DropdownButtonFormField<int>(
+      // Keyed on the value so names resolved after the first build replace
+      // the selection; initialValue alone is only read once.
+      key: ValueKey(_projectId),
       initialValue: _projectId,
       decoration: const InputDecoration(
         labelText: 'Project',

@@ -5,9 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:protobuf/well_known_types/google/protobuf/timestamp.pb.dart';
 import 'package:time_logger/pages/home_page.dart';
 import 'package:time_logger/providers/catalog_provider.dart';
+import 'package:time_logger/providers/intent_provider.dart';
 import 'package:time_logger/providers/timer_provider.dart';
 import 'package:time_logger/proto/timelogger/v1/entry.pb.dart';
 import 'package:time_logger/proto/timelogger/v1/project.pb.dart';
+import 'package:time_logger/services/intent_service.dart';
 
 /// A stand-in for the real notifier so the widget can be exercised without a
 /// server. Overriding at the provider boundary keeps the test focused on what
@@ -98,5 +100,47 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('acme'), findsWidgets);
+  });
+
+  testWidgets('a timer pre-fill from another app fills the form', (
+    tester,
+  ) async {
+    await tester.pumpWidget(wrap(null));
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(HomePage)),
+    );
+    container
+        .read(timerDraftProvider.notifier)
+        .set(
+          const StartTimerIntent(
+            description: 'PROJ-123 fix login',
+            project: 'Acme',
+            tags: ['billable'],
+          ),
+        );
+    await tester.pumpAndSettle();
+
+    expect(find.text('PROJ-123 fix login'), findsOneWidget);
+    expect(find.text('acme'), findsOneWidget);
+    expect(find.text('billable'), findsOneWidget);
+    // Applied once, then cleared so a rebuild cannot apply it again.
+    expect(container.read(timerDraftProvider), isNull);
+  });
+
+  testWidgets('a timer pre-fill is refused while a timer is running', (
+    tester,
+  ) async {
+    await tester.pumpWidget(wrap(runningEntry()));
+    await tester.pumpAndSettle();
+
+    ProviderScope.containerOf(tester.element(find.byType(HomePage)))
+        .read(timerDraftProvider.notifier)
+        .set(const StartTimerIntent(description: 'something else'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('A timer is already running'), findsOneWidget);
+    expect(find.text('writing tests'), findsOneWidget);
   });
 }

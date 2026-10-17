@@ -193,6 +193,75 @@ If upgrading an existing installation signed with the same key, use the `-r` fla
 adb install -r mobile/build/app/outputs/flutter-apk/app-release.apk
 ```
 
+## Android Intents
+
+The Android app can be opened from the launcher and from other apps to start a
+timer or log time quickly. Every intent only pre-fills a form: nothing is
+recorded until you tap **Start** or **Save**, so a link on a web page cannot
+change your data.
+
+| Intent | How to use | Result |
+|--------|------------|--------|
+| App shortcuts | Long-press the app icon | **Timer**, **New entry**, **Entries** or **Reports** |
+| `PROCESS_TEXT` | Select text in any app (e.g. a ticket title) and choose **Log time** | See below |
+| `SEND` (`text/plain`) | Share text to **time_logger** | See below |
+| `VIEW` deep link | Open a `timelogger://` link (e.g. from Tasker, an NFC tag or a Gallery skill) | See below |
+
+### Pre-filling from text
+
+Text that contains a duration with a unit, such as `Code review 1h30m` or
+`standup 15 min`, opens the entry editor with that duration ending now; the
+rest of the text becomes the description. Any other text, such as
+`PROJ-123 Fix login`, becomes the description on the timer page. A bare number
+is not treated as a duration, because in free text it is more often a ticket or
+room number.
+
+### Deep links
+
+| Link | Opens |
+|------|-------|
+| `timelogger://timer?description=&project=&task=&tags=` | Timer page, pre-filled. Refused with a message while a timer is running |
+| `timelogger://entry/new?description=&project=&task=&tags=&date=&start=&end=&duration=` | Entry editor, pre-filled |
+| `timelogger://entries` | Entries |
+| `timelogger://reports` | Reports |
+
+All parameters are optional.
+
+- `project` and `task` are names, matched ignoring case. A name that matches
+  nothing is reported and left unset.
+- `tags` is comma separated and lowercased.
+- `date` is `YYYY-MM-DD`; `start` and `end` are 24-hour `HH:MM` in the
+  device's time zone.
+- `duration` follows the CLI: a bare number is minutes, and `2h`, `1h30m` and
+  `1.5h` also work. With only a duration, the entry ends now (at the current
+  time of day on `date`); with a start or end, it runs from that.
+- An invalid parameter is dropped on its own; the rest of the link still
+  applies.
+
+### Testing intents with adb
+
+```sh
+# deep link; quote the whole command so the device shell does not treat & as a separator
+adb shell "am start -a android.intent.action.VIEW \
+  -d 'timelogger://entry/new?description=code%20review&project=acme&duration=90&tags=billable'"
+
+# share text
+adb shell am start -a android.intent.action.SEND -t text/plain \
+  --es android.intent.extra.TEXT "'standup 15 min'" \
+  -n dev.alexho.time_logger/.MainActivity
+```
+
+The shortcuts in `mobile/android/app/src/main/res/xml/shortcuts.xml` refer to
+the application ID and activity `dev.alexho.time_logger.MainActivity`; update
+them if either changes.
+
+### Google AI Edge Gallery skills
+
+[`google-ai-edge-gallery-skills/`](google-ai-edge-gallery-skills) contains
+[Agent Skills](https://github.com/google-ai-edge/gallery/blob/main/skills/README.md)
+for the Google AI Edge Gallery app, so an on-device model can open a pre-filled
+timer or entry from a sentence, or schedule a reminder that opens one.
+
 ## Development
 
 ```sh
