@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_helper/grpc.dart';
 import 'package:grpc/grpc.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -46,21 +47,14 @@ final appConfigProvider = NotifierProvider<AppConfigNotifier, AppConfig>(
 final channelProvider = Provider<ClientChannel>((ref) {
   final config = ref.watch(appConfigProvider);
 
-  final channel = ClientChannel(
-    config.host,
+  final holder = GrpcChannelHolder(
+    host: config.host,
     port: config.port,
-    options: ChannelOptions(
-      credentials: config.useTls
-          ? const ChannelCredentials.secure()
-          : const ChannelCredentials.insecure(),
-      // A short idle timeout keeps a mobile client from holding a connection
-      // open in the background; reconnecting is cheap on a tailnet.
-      idleTimeout: const Duration(minutes: 5),
-    ),
+    useTls: config.useTls,
   );
 
-  ref.onDispose(() => channel.shutdown());
-  return channel;
+  ref.onDispose(holder.shutdown);
+  return holder.channel;
 });
 
 // --- Service clients -------------------------------------------------------

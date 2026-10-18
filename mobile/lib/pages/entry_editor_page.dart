@@ -102,7 +102,7 @@ class _EntryEditorPageState extends ConsumerState<EntryEditorPage> {
       showMessage(
         context,
         '${resolved.missing.join(', ')} not found',
-        isError: true,
+        kind: MessageKind.error,
       );
     }
   }
@@ -345,7 +345,7 @@ class _EntryEditorPageState extends ConsumerState<EntryEditorPage> {
         Navigator.of(context).pop();
       }
     } catch (error) {
-      if (mounted) showMessage(context, describeError(error), isError: true);
+      if (mounted) showMessage(context, describeError(error), kind: MessageKind.error);
     } finally {
       if (mounted) setState(() => _saving = false);
     }

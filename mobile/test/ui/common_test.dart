@@ -18,20 +18,20 @@ void main() {
 
   group('formatStopwatch', () {
     test('omits the hour until there is one', () {
-      expect(formatStopwatch(0), '00:00');
-      expect(formatStopwatch(59), '00:59');
-      expect(formatStopwatch(60), '01:00');
-      expect(formatStopwatch(3599), '59:59');
+      expect(formatStopwatch(const Duration(seconds: 0)), '00:00');
+      expect(formatStopwatch(const Duration(seconds: 59)), '00:59');
+      expect(formatStopwatch(const Duration(seconds: 60)), '01:00');
+      expect(formatStopwatch(const Duration(seconds: 3599)), '59:59');
     });
 
     test('includes the hour once past it', () {
-      expect(formatStopwatch(3600), '1:00:00');
-      expect(formatStopwatch(3661), '1:01:01');
-      expect(formatStopwatch(36000), '10:00:00');
+      expect(formatStopwatch(const Duration(seconds: 3600)), '1:00:00');
+      expect(formatStopwatch(const Duration(seconds: 3661)), '1:01:01');
+      expect(formatStopwatch(const Duration(seconds: 36000)), '10:00:00');
     });
 
     test('clamps a negative value rather than rendering a minus sign', () {
-      expect(formatStopwatch(-5), '00:00');
+      expect(formatStopwatch(const Duration(seconds: -5)), '00:00');
     });
   });
 

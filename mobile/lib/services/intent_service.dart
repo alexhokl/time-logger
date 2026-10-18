@@ -1,4 +1,4 @@
-import 'package:flutter/services.dart';
+import 'package:flutter_helper/intents.dart';
 
 /// An action requested by another app through an Android intent (share sheet,
 /// text selection menu, deep link or launcher shortcut).
@@ -88,36 +88,20 @@ class OpenReportsIntent extends AppIntent {
 /// Receives intents forwarded by MainActivity over a method channel.
 class IntentService {
   static const String deepLinkScheme = 'timelogger';
-  static const MethodChannel _channel = MethodChannel(
-    'dev.alexho.time_logger/intents',
+  static const String channelName = 'dev.alexho.time_logger/intents';
+
+  final IntentChannel<AppIntent> _channel = IntentChannel(
+    channelName,
+    toAppIntent,
   );
 
   /// Returns the intent that launched the app, if any.
-  Future<AppIntent?> getInitialIntent() async {
-    try {
-      final raw = await _channel.invokeMapMethod<String, String?>(
-        'getInitialIntent',
-      );
-      return raw == null ? null : toAppIntent(raw);
-    } on MissingPluginException {
-      // Not running on Android
-      return null;
-    }
-  }
+  Future<AppIntent?> getInitialIntent() => _channel.getInitialIntent();
 
   /// Calls [onIntent] for every intent received while the app is running.
-  void listen(void Function(AppIntent) onIntent) {
-    _channel.setMethodCallHandler((call) async {
-      if (call.method != 'onIntent' || call.arguments is! Map) return;
-      final raw = Map<String, String?>.from(call.arguments as Map);
-      final intent = toAppIntent(raw);
-      if (intent != null) onIntent(intent);
-    });
-  }
+  void listen(void Function(AppIntent) onIntent) => _channel.listen(onIntent);
 
-  void dispose() {
-    _channel.setMethodCallHandler(null);
-  }
+  void dispose() => _channel.dispose();
 
   /// Converts the map sent by MainActivity into an [AppIntent].
   static AppIntent? toAppIntent(Map<String, String?> raw) {
@@ -146,17 +130,17 @@ class IntentService {
       case 'timer':
         if (uri.path.isNotEmpty && uri.path != '/') return null;
         return StartTimerIntent(
-          description: _nonEmpty(params['description']),
-          project: _nonEmpty(params['project']),
-          task: _nonEmpty(params['task']),
+          description: nonEmpty(params['description']),
+          project: nonEmpty(params['project']),
+          task: nonEmpty(params['task']),
           tags: parseTags(params['tags']),
         );
       case 'entry':
         if (uri.path != '/new' && uri.path != '/new/') return null;
         return CreateEntryIntent(
-          description: _nonEmpty(params['description']),
-          project: _nonEmpty(params['project']),
-          task: _nonEmpty(params['task']),
+          description: nonEmpty(params['description']),
+          project: nonEmpty(params['project']),
+          task: nonEmpty(params['task']),
           tags: parseTags(params['tags']),
           date: parseDate(params['date']),
           start: parseTime(params['start']),
@@ -249,22 +233,10 @@ class IntentService {
 
   /// Splits comma-separated tags, lowercased and trimmed like the server
   /// stores them so that a pre-filled tag matches an existing one.
-  static List<String> parseTags(String? value) {
-    if (value == null) return const [];
-    return value
-        .split(',')
-        .map((t) => t.trim().toLowerCase())
-        .where((t) => t.isNotEmpty)
-        .toSet()
-        .toList();
-  }
+  static List<String> parseTags(String? value) =>
+      splitList(value, normalise: (t) => t.toLowerCase());
 
-  static String? _nonEmpty(String? value) {
-    final trimmed = value?.trim() ?? '';
-    return trimmed.isEmpty ? null : trimmed;
-  }
-
-  static String? _clean(String text) => _nonEmpty(
+  static String? _clean(String text) => nonEmpty(
     text
         .replaceAll(RegExp(r'\s+'), ' ')
         .replaceAll(RegExp(r'^[\s,:;\-]+|[\s,:;\-]+$'), ''),

@@ -175,7 +175,7 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
         await notifier.delete(project.id);
       }
     } catch (error) {
-      if (mounted) showMessage(context, describeError(error), isError: true);
+      if (mounted) showMessage(context, describeError(error), kind: MessageKind.error);
     }
   }
 
@@ -213,7 +213,7 @@ class _ProjectsPageState extends ConsumerState<ProjectsPage> {
     try {
       await ref.read(projectsProvider.notifier).create(trimmed);
     } catch (error) {
-      if (mounted) showMessage(context, describeError(error), isError: true);
+      if (mounted) showMessage(context, describeError(error), kind: MessageKind.error);
     }
   }
 }

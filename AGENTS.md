@@ -19,6 +19,16 @@ task lint       # golangci-lint, buf lint, dart analyze
 task proto      # regenerate Go and Dart from the protos
 ```
 
+The mobile app's shared infrastructure comes from the `flutter_helper`
+package (github.com/alexhokl/flutter-helper, pinned by tag in
+`mobile/pubspec.yaml`): the gRPC channel behind `channelProvider`, the intent
+method channel, `EmptyState`/`ErrorState`/`showMessage`, the formatting
+helpers and the lint configuration. `mobile/lib/ui/common.dart` re-exports
+them alongside the app's own widgets. Fix or extend those in flutter-helper
+rather than copying code into this app. The `apk`, `mac`, `run-*`, signing
+key and `tag` tasks are included from `../flutter-helper/taskfiles/flutter.yml`,
+which needs a sibling checkout of flutter-helper.
+
 Always run `task lint` and `task test` before considering a change done. The
 linter config is deliberately strict; do not weaken it to make a finding go
 away without saying why.

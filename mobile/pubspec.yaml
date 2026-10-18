@@ -34,6 +34,13 @@ dependencies:
   shared_preferences: ^2.3.4
   intl: ^0.20.0
 
+  # Shared with the other Flutter apps: gRPC channel, intents, UI and
+  # formatting helpers, lint configuration.
+  flutter_helper:
+    git:
+      url: https://github.com/alexhokl/flutter-helper.git
+      ref: v0.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -42,9 +49,6 @@ dev_dependencies:
   # sqflite has no implementation on desktop test runners, so the FFI variant
   # backs the repository tests.
   sqflite_common_ffi: ^2.3.4
-
-  build_runner: ^2.4.13
-  mockito: ^5.5.1
 
 flutter:
   uses-material-design: true

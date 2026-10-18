@@ -1,6 +1,7 @@
 /// Build-time and user-configurable application settings.
 library;
 
+import 'package:flutter_helper/config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Keys used in [SharedPreferences]. Centralised so a rename cannot silently
@@ -42,10 +43,7 @@ class AppConfig {
   /// The short git commit the app was built from, injected at build time with
   /// `--dart-define=GIT_COMMIT=...`. Shown on the settings page so a bug report
   /// can be tied to an exact build.
-  static const gitCommit = String.fromEnvironment(
-    'GIT_COMMIT',
-    defaultValue: 'dev',
-  );
+  static const gitCommit = BuildInfo.gitCommit;
 
   static const initial = AppConfig(
     host: defaultHost,

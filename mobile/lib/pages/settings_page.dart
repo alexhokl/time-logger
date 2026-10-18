@@ -151,7 +151,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Future<void> _saveConnection() async {
     final port = int.tryParse(_portController.text.trim());
     if (port == null || port <= 0 || port > 65535) {
-      showMessage(context, 'Port must be between 1 and 65535', isError: true);
+      showMessage(context, 'Port must be between 1 and 65535', kind: MessageKind.error);
       return;
     }
 
@@ -179,7 +179,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       result.failed > 0
           ? 'Uploaded ${result.uploaded}, ${result.failed} failed'
           : 'Uploaded ${result.uploaded} entries',
-      isError: result.failed > 0,
+      kind: result.failed > 0 ? MessageKind.error : MessageKind.info,
     );
   }
 
@@ -208,7 +208,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       await ref.read(serverSettingsProvider.notifier).updateWeekStart(choice);
       ref.invalidate(weeklyReportProvider);
     } catch (error) {
-      if (mounted) showMessage(context, describeError(error), isError: true);
+      if (mounted) showMessage(context, describeError(error), kind: MessageKind.error);
     }
   }
 
@@ -234,7 +234,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ref.invalidate(entriesProvider);
       ref.invalidate(weeklyReportProvider);
     } catch (error) {
-      if (mounted) showMessage(context, describeError(error), isError: true);
+      if (mounted) showMessage(context, describeError(error), kind: MessageKind.error);
     }
   }
 

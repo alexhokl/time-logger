@@ -4,6 +4,15 @@ env:
   APP_NAME: time-logger
   IMAGE: asia-east1-docker.pkg.dev/craffy/public/time-logger
 
+includes:
+  flutter:
+    taskfile: ../flutter-helper/taskfiles/flutter.yml
+    flatten: true
+    vars:
+      APP: time-logger
+      MAC_APP: time_logger.app
+      MAC_INSTALL_APP: time logger.app
+
 tasks:
   default:
     desc: List available tasks
@@ -31,18 +40,6 @@ tasks:
   coverage-html:
     desc: Produce an HTML coverage report for the Go code
     cmd: go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out -o coverage.html
-
-  flutter-coverage:
-    desc: Run the Flutter tests with coverage
-    dir: mobile
-    cmd: flutter test --no-pub --coverage
-
-  flutter-coverage-html:
-    desc: Render the Flutter coverage report as HTML
-    dir: mobile
-    cmds:
-      - task: flutter-coverage
-      - genhtml coverage/lcov.info -o coverage/html
 
   lint:
     desc: Lint the Go and Dart code
@@ -79,21 +76,6 @@ tasks:
     desc: Run the server locally against a scratch database
     cmd: go run . serve --database ./time-logger.db --port 8080
 
-  run-flutter:
-    desc: Run the Flutter app on macOS
-    platforms: [darwin]
-    dir: mobile
-    cmd: flutter run -d macos --dart-define=GIT_COMMIT=$(git rev-parse --short HEAD)
-
-  run-android:
-    desc: Run the Flutter app on the first attached Android device
-    cmd: flutter devices --machine | jq -r '.[] | select(.targetPlatform | contains("android")) | .id' | head -n 1 | xargs flutter run -d
-
-  generate:
-    desc: Run the Dart build_runner code generation (Riverpod and mocks)
-    dir: mobile
-    cmd: dart run build_runner build --delete-conflicting-outputs
-
   image:
     desc: Build the Docker image locally
     preconditions:
@@ -102,67 +84,6 @@ tasks:
         msg: Docker does not appear to be running
     cmd: docker build -t $IMAGE:local .
 
-  apk:
-    desc: Build the release APK
-    dir: mobile
-    cmd: flutter build apk --dart-define=GIT_COMMIT=$(git rev-parse --short HEAD)
-
-  mac:
-    desc: Build and install the macOS app
-    platforms: [darwin]
-    cmds:
-      - cd mobile && flutter build macos --dart-define=GIT_COMMIT=$(git rev-parse --short HEAD)
-      - rm -rf /Applications/time\ logger.app
-      - cp -R mobile/build/macos/Build/Products/Release/time_logger.app /Applications/time\ logger.app
-
   architecture-watch:
     desc: Watch and re-render the architecture diagram
     cmd: d2 --watch --theme 302 ./documentation/architecture.d2
-
-  generate-apk-signing-key:
-    desc: Generate a release keystore for signing the APK
-    vars:
-      KEYSTORE_FILE: /tmp/time_logger_release.jks
-      KEY_ALIAS: time_logger
-    cmds:
-      - |
-        STORE_PASSWORD=$(gum input --password --prompt "Enter keystore password: ")
-        keytool -genkey -v \
-          -keystore {{.KEYSTORE_FILE}} \
-          -keyalg RSA -keysize 2048 -validity 10000 \
-          -alias {{.KEY_ALIAS}} \
-          -dname "CN=time_logger, OU=Mobile, O=alexho, L=HK, S=HK, C=HK" \
-          -storepass "$STORE_PASSWORD" \
-          -keypass "$STORE_PASSWORD"
-        base64 -i {{.KEYSTORE_FILE}} -o {{.KEYSTORE_FILE}}.b64
-        printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=release.jks\n' \
-          "$STORE_PASSWORD" "$STORE_PASSWORD" {{.KEY_ALIAS}} \
-          > /tmp/time_logger_key.properties
-        echo "Keystore written to {{.KEYSTORE_FILE}}"
-        echo "Run 'task upload-apk-signing-secrets' to push it to Secret Manager"
-
-  upload-apk-signing-secrets:
-    desc: Upload the signing keystore and properties to GCP Secret Manager
-    vars:
-      KEYSTORE_FILE: /tmp/time_logger_release.jks
-      GCP_PROJECT: craffy
-    cmds:
-      - gcloud secrets versions add time-logger-keystore --data-file={{.KEYSTORE_FILE}}.b64 --project={{.GCP_PROJECT}}
-      - gcloud secrets versions add time-logger-key-properties --data-file=/tmp/time_logger_key.properties --project={{.GCP_PROJECT}}
-      - rm {{.KEYSTORE_FILE}} {{.KEYSTORE_FILE}}.b64 /tmp/time_logger_key.properties
-      - echo "Secrets uploaded and the local copies removed"
-
-  tag:
-    desc: Create the next 0.1.x git tag
-    silent: true
-    cmds:
-      - |
-        LATEST=$(git tag --sort=-version:refname | grep -E '^0\.1\.[0-9]+$' | head -1)
-        if [ -z "$LATEST" ]; then
-          NEW_TAG="0.1.0"
-        else
-          PATCH=$(echo "$LATEST" | cut -d. -f3)
-          NEW_TAG="0.1.$((PATCH + 1))"
-        fi
-        git tag "$NEW_TAG"
-        echo "Created tag $NEW_TAG"

@@ -228,7 +228,7 @@ class _PendingBanner extends ConsumerWidget {
             result.failed > 0
                 ? 'Uploaded ${result.uploaded}, ${result.failed} still pending'
                 : 'Uploaded ${result.uploaded} entries',
-            isError: result.failed > 0,
+            kind: result.failed > 0 ? MessageKind.error : MessageKind.info,
           );
         },
         child: Padding(

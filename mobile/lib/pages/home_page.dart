@@ -44,7 +44,7 @@ class _HomePageState extends ConsumerState<HomePage> {
     final running = await ref.read(runningTimerProvider.future);
     if (!mounted) return;
     if (running != null) {
-      showMessage(context, 'A timer is already running', isError: true);
+      showMessage(context, 'A timer is already running', kind: MessageKind.error);
       return;
     }
 
@@ -66,7 +66,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       showMessage(
         context,
         '${resolved.missing.join(', ')} not found',
-        isError: true,
+        kind: MessageKind.error,
       );
     }
   }
@@ -204,7 +204,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           const SizedBox(height: 24),
           Center(
             child: Text(
-              formatStopwatch(entry.durationSeconds.toInt()),
+              formatStopwatch(Duration(seconds: entry.durationSeconds.toInt())),
               style: theme.textTheme.displayLarge?.copyWith(
                 // Tabular figures stop the clock jittering as the digits
                 // change width each second.
@@ -275,7 +275,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       });
     } catch (error) {
       if (mounted) {
-        showMessage(context, describeError(error), isError: true);
+        showMessage(context, describeError(error), kind: MessageKind.error);
       }
     }
   }
@@ -294,7 +294,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       }
     } catch (error) {
       if (mounted) {
-        showMessage(context, describeError(error), isError: true);
+        showMessage(context, describeError(error), kind: MessageKind.error);
       }
     }
   }
@@ -326,7 +326,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       await ref.read(runningTimerProvider.notifier).cancel();
     } catch (error) {
       if (mounted) {
-        showMessage(context, describeError(error), isError: true);
+        showMessage(context, describeError(error), kind: MessageKind.error);
       }
     }
   }
