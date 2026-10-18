@@ -49,50 +49,16 @@ steps:
   # The Flutter steps run in parallel with the server image: neither depends on
   # the other, and the APK build dominates the wall-clock time.
   - name: "${_FLUTTER_IMAGE}"
-    id: Write local.properties
-    waitFor: ["-"]
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        FLUTTER_SDK=$(dirname $(dirname $(which flutter)))
-        echo "flutter.sdk=$$FLUTTER_SDK" > mobile/android/local.properties
-        echo "sdk.dir=$$ANDROID_SDK_ROOT" >> mobile/android/local.properties
-
-  - name: "gcr.io/cloud-builders/gcloud"
-    id: Write signing files
-    waitFor: [Write local.properties]
-    entrypoint: bash
-    secretEnv: ["KEYSTORE_B64", "KEY_PROPERTIES"]
-    args:
-      - -c
-      - |
-        echo "$$KEYSTORE_B64" | base64 -d > mobile/android/app/release.jks
-        printf '%s' "$$KEY_PROPERTIES" > mobile/android/key.properties
-
-  - name: "${_FLUTTER_IMAGE}"
-    id: Flutter pub get
-    waitFor: [Write signing files]
-    entrypoint: flutter
-    args: ["pub", "get", "--no-example"]
-    dir: mobile
-
-  - name: "${_FLUTTER_IMAGE}"
-    id: Flutter test
-    waitFor: [Flutter pub get]
-    entrypoint: flutter
-    args: ["test", "--no-pub"]
-    dir: mobile
-
-  - name: "${_FLUTTER_IMAGE}"
     id: Build APK
-    waitFor: [Flutter test]
-    entrypoint: flutter
-    args:
-      - build
-      - apk
-      - --dart-define=GIT_COMMIT=$SHORT_SHA
-    dir: mobile
+    waitFor: ["-"]
+    # Writes local.properties and the signing files, runs pub get, the tests
+    # and builds the release APK; see build-apk in the flutter-build image.
+    entrypoint: build-apk
+    args: ["mobile"]
+    secretEnv: ["KEYSTORE_B64", "KEY_PROPERTIES"]
+    env:
+      - "GIT_COMMIT=$SHORT_SHA"
+      - "RUN_TESTS=true"
 
   - name: "gcr.io/cloud-builders/gcloud"
     id: Upload APK
